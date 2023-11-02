@@ -44,7 +44,14 @@ In Forth-83, Zork's game logic would be implemented as a series of words (functi
 This is a high-level overview of how you might implement Zork's game logic in Forth-83 with fixed-point 16-bit integers. In practice, creating a complete Zork-like game would require significant programming effort and attention to detail, as well as creative storytelling and puzzle design.
 
 
-## The provided code in Forth-83 seems to aim for a text adventure structure, but there are several issues and possible improvements. Forth-83 has a different memory management model compared to modern programming languages, so the code must respect the limitations of a 16-bit system, particularly with regard to fixed-point arithmetic and memory allocation.
+## code 
+- aim for a text adventure structure,
+
+issues and possible improvements.
+
+- Forth-83 has a different memory management model compared to modern programming languages,
+- so the code must respect the limitations of a 16-bit system
+- particularly with regard to fixed-point arithmetic and memory allocation.
 
 Let's address the issues and improve the code:
 
@@ -66,5 +73,5 @@ Improvements made:
 - Removed the `ADD-TO-INVENTORY` input prompt since it's not practical to ask the player every time. You would typically call `add-to-inventory` when an item is picked up in the game.
 - Added comments for clarity.
 
-Please note that a complete implementation of a game like Zork would be far more complex and beyond the scope of this format. However, this code provides a more accurate starting point for a text adventure game in Forth-83.
+Please note that a complete implementation of a game like Zork would be far more complex 
 
