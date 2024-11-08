@@ -41,8 +41,6 @@ Zork's game logic would be implemented in MINT code and the game paraamters cont
 10. Error Handling:
     - Handle errors gracefully, providing helpful feedback to the player when they enter invalid commands or encounter issues.
 
-This is a high-level overview of how you might implement Zork's game logic in Forth-83 with fixed-point 16-bit integers. In practice, creating a complete Zork-like game would require significant programming effort and attention to detail, as well as creative storytelling and puzzle design.
-
 
 ## code 
 - to build a text adventure structure
