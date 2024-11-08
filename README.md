@@ -89,3 +89,107 @@ Resource Points: 16, 39, 55, 73
 Quest Hubs: 25, 34, 51, 72
 ```
 
+
+
+MOVEMENT COMMANDS [First Letter Used for Input]
+---------------------------------------------
+north (n)          - Move north
+south (s)          - Move south
+east (e)           - Move east
+west (w)           - Move west
+up (u)             - Climb up/ascend
+down (d)           - Climb down/descend
+portal (p)         - Use magical portal when available
+float (f)          - Float in anti-gravity zones
+
+INTERACTION COMMANDS
+-------------------
+look (l)           - Examine current room
+examine (x) [obj]  - Look at specific object
+take (t) [obj]     - Pick up an item
+drop (r) [obj]     - Drop carried item
+use (u) [obj]      - Use an item
+push (h) [obj]     - Push an object
+pull (u) [obj]     - Pull an object
+open (o) [obj]     - Open something
+close (c) [obj]    - Close something
+unlock (k) [obj]   - Unlock with key
+read (d) [obj]     - Read text/inscriptions
+
+INVENTORY COMMANDS
+-----------------
+inventory (i)      - Show inventory
+equip (q) [obj]    - Equip item
+unequip (n) [obj]  - Unequip item
+craft (c) [obj]    - Craft items (Tech Zone)
+
+COMBAT COMMANDS
+--------------
+attack (a) [obj]   - Attack enemy
+defend (f)         - Defensive stance
+cast (m) [spell]   - Use magic (if available)
+flee (f)           - Attempt to escape
+
+SYSTEM COMMANDS
+--------------
+health (h)         - Show health status
+score (s)          - Show current score
+save (v)           - Save game
+quit (q)           - Exit game
+help (?)           - Show commands
+
+SPECIAL ZONE COMMANDS
+--------------------
+power (w) [obj]    - Power device (Tech Zone)
+align (g) [obj]    - Align gears (Mechanical Zone)
+float (f)          - Zero gravity movement (Astral Zone)
+charge (c) [obj]   - Charge device (Tech Zone)
+purify (y) [obj]   - Purify item (Holy areas)
+corrupt (k) [obj]  - Corrupt item (Shadow areas)
+
+MINT Implementation Notes:
+------------------------
+1. Input Format: [command][object]
+   Example: "tn" = take north
+           "ul" = unlock
+           "xk" = examine key
+
+2. Command Processing:
+   :P // Parse input
+   /K c! // Get command char
+   /K o! // Get object char (if any)
+   
+3. Response Format:
+   - Success: Short confirmation
+   - Failure: Brief error
+   - Status: Current state
+
+4. Memory Usage:
+   - Commands: 1 byte each
+   - Objects: 1 byte ID
+   - States: Bit flags
+   - Items: Array indices
+
+5. Command Categories (Bit-Mapped):
+   #0001 - Movement
+   #0002 - Interaction
+   #0004 - Inventory
+   #0008 - Combat
+   #0010 - System
+   #0020 - Special
+
+6. State Tracking:
+   - Room state: r variable
+   - Player state: p variable
+   - Item states: i array
+   - Flags: f variable
+
+Implementation Priority:
+1. Core Movement (n,s,e,w)
+2. Basic Interaction (l,x,t,r)
+3. Inventory Management (i)
+4. System Commands (h,q)
+5. Special Actions (zone-specific)
+
+
+
