@@ -1,295 +1,666 @@
-// CORE SYSTEM VARIABLES
+// Part 1: Core Game Engine - Complete Version
+// Two-letter variables documented:
+// pl = player location    hp = health points
+// mp = magic power       tp = tech power
+// iv = inventory         st = state flags
+// eq = equipment         gd = gold
+// rm = room memory       mn = monster data
+// sp = spell power       zn = zone number
+// tn = turn counter      sv = save state
+// er = error state       sd = sound state
+
+// Initialize all game state
+:A
+0 pl! 100 hp! 100 mp! 100 tp!  // Player stats
+0 iv! 0 st! 0 eq! 0 gd!       // Items & flags
+0 rm! 0 mn! 100 sp! 0 zn!     // World state
+0 tn! 0 sv! 0 er! 0 sd!      // System state
+;
+
+// Stack protection
+:B
+/D 10 > (                     // Stack too deep?
+  `Stack error` 
+  ClearStack
+)
+;
+
+// Command parser with error check
+:C
+/K v! /K n!                   // Get command
+v@ 0 = ( `Bad command` )      // Error check
+;
+
+// Movement handler - North
+:D
+B                            // Check stack
+pl@ CheckCollision (          // Can move?
+  pl@ 3 * rm + 1+ @ -1 = (   // Exit exists?
+    `No exit north`
+  ) /E (
+    pl@ 3 * rm + 1+ @ pl!    // Move
+    IncrementTurn
+    H                        // Show room
+  )
+)
+;
+
+// Movement handler - South
+:E
+B
+pl@ CheckCollision (
+  pl@ 3 * rm + 2 + @ -1 = (
+    `No exit south`
+  ) /E (
+    pl@ 3 * rm + 2 + @ pl!
+    IncrementTurn
+    H
+  )
+)
+;
+
+// Movement handler - East
+:F
+B
+pl@ CheckCollision (
+  pl@ 3 * rm + 3 + @ -1 = (
+    `No exit east`
+  ) /E (
+    pl@ 3 * rm + 3 + @ pl!
+    IncrementTurn
+    H
+  )
+)
+;
+
+// Movement handler - West
+:G
+B
+pl@ CheckCollision (
+  pl@ 3 * rm + 4 + @ -1 = (
+    `No exit west`
+  ) /E (
+    pl@ 3 * rm + 4 + @ pl!
+    IncrementTurn
+    H
+  )
+)
+;
+
+// Process all movement commands
+:H
+v@ 110 = ( D )                // n - north
+v@ 115 = ( E )                // s - south
+v@ 101 = ( F )                // e - east
+v@ 119 = ( G )                // w - west
+;
+
+// Show current room with full details
+:I
+ClearScreen
+pl@ 3 * rm + @ k!            // Get room index
+k@ RoomDesc                  // Show description
+CheckItems                   // Show items
+CheckMonster                // Show monsters
+ShowExits                   // Show exits
+;
+
+// Inventory handler with weight check
+:J
+v@ 105 = (                   // i - inventory
+  `You carry:`
+  iv@ ShowItems
+  `Weight:` iv@ CalcWeight .
+  `Gold:` gd@ .
+)
+;
+
+// Take item with checks
+:K
+v@ 116 = (                   // t - take
+  iv@ CalcWeight 100 < (     // Weight ok?
+    pl@ CheckItem (          // Item present?
+      AddItem
+      PlaySound
+      `Taken`
+    ) /E ( `Nothing to take` )
+  ) /E ( `Too heavy` )
+)
+;
+
+// Drop item with checks
+:L
+v@ 100 = (                   // d - drop
+  iv@ n@ HasItem (           // Have item?
+    DropItem
+    PlaySound
+    `Dropped`
+  ) /E ( `Don't have it` )
+)
+;
+
+// Look command with details
+:M
+v@ 108 = (                   // l - look
+  I                         // Full room show
+  ShowTime                  // Show turn count
+)
+;
+
+// Health/damage handler
+:N
+// Stack: ( damage -- )
+hp@ swap - 0 max 100 min hp! // Apply damage
+PlayHitSound
+;
+
+// Collision detection
+:O
+// Stack: ( pos -- flag )
+" rm + @ #FF &              // Get room flags
+;
+
+// Turn counter
+:P
+tn@ 1+ tn!                  // Increment
+;
+
+// Save game state
+:Q
+pl@ hp@ mp@ iv@ 4 SaveArray // Save core stats
+;
+
+// Load game state
+:R
+4 LoadArray                 // Load core stats
+iv! mp! hp! pl!
+;
+
+// Status display
+:S
+`HP:` hp@ . 
+`MP:` mp@ .
+`Gold:` gd@ .
+`Turn:` tn@ .
+;
+
+// Sound effects
+:T
+sd@ /O                      // Output to sound port
+;
+
+// Clear screen helper
+:U
+27 /C `[2J` 27 /C `[H`     // ANSI clear
+;
+
+// Error handler
+:V
+er! `Error:` er@ .
+0 er!
+;
+
+// Main game loop - enhanced
+:W
+U                          // Clear screen
+S                          // Show status
+I                          // Show room
+C                          // Get command
+B                          // Check stack
+H J K L M                  // Process commands
+CheckGameOver              // Check end state
+v@ 113 = ( /F w! )         // q - quit
+/E ( /T w! )
+w@ /T = W                  // Loop unless quit
+;
+
+// Game start with intro
+:X
+U                          // Clear screen
+`Welcome Adventurer!` /N
+`Commands:` /N
+`n,s,e,w: Move` /N
+`t: Take  d: Drop` /N
+`i: Inventory  l: Look` /N
+`q: Quit` /N
+PlayIntroSound
+A                          // Initialize
+W                          // Start game loop
+;
+
+// Game end handler
+:Y
+SaveHighScore
+`Game Over` /N
+`Turns:` tn@ . /N
+`Gold:` gd@ . /N
+;
+
+
+// Part 2: World Content
+// Array layouts and types:
+// Room: [desc_ptr exits[NSEW] items_ptr flags zone_type]
+// Item: [id type value weight flags]
+// Monster: [id hp dmg armor special_flags]
+// Zone flags: 1=normal 2=dark 3=magic 4=tech 5=hazard
+
+// Zone 0: Start Area
 :AA
-0 pl! 100 hp! 100 mp! // Player stats 
-100 tp! 0 iv! 0 st!   // Tech power, inventory, state
-0 zn! 0 tm! 0 eq! 0 cm! // Zone, temp, equipment, crafting
-0 pz! 0 ef!           // Puzzle state, effects
+[ 0 1 -1 2 -1 0 1 ] r0! // Start Room
+[ 1 2 3 4 0 1 1 ] r1! // Central Hall
+[ 2 38 43 37 1 2 1 ] r2! // Entry Cave
+[ 3 34 33 4 41 3 1 ] r3! // Stone Path
+[ 4 30 29 0 3 4 1 ] r4! // Dark Path
+[ 5 21 24 6 4 5 1 ] r5! // Forest Link
 ;
 
-// ROOM DEFINITIONS (77 Rooms Total)
-// Format: [desc_ptr exits[NSEW] items special_flags zone_effects]
+// Zone 1: Forest Area
+:AB
+[ 6 17 5 7 16 6 2 ] f0! // Deep Woods
+[ 7 0 6 8 0 7 2 ] f1! // Ancient Grove
+[ 8 7 9 0 0 8 2 ] f2! // Mystic Circle
+[ 9 8 10 0 0 9 2 ] f3! // Spirit Pool
+[ 10 9 11 0 0 10 2 ] f4! // Tree Shrine
+;
 
-// START ZONE (0-5)
+// Zone 2: Mountain Area
+:AC
+[ 25 26 30 27 0 11 3 ] m0! // Base Camp
+[ 26 18 25 28 0 12 3 ] m1! // Rocky Path
+[ 27 22 31 0 25 13 3 ] m2! // High Peak
+[ 28 27 0 29 26 14 3 ] m3! // Eagle Nest
+[ 29 28 0 0 0 15 3 ] m4! // Summit
+;
+
+// Zone 3: Tech Area
+:AD
+[ 67 0 68 0 0 16 4 ] t0! // Control Room
+[ 68 67 69 0 0 17 4 ] t1! // Power Core
+[ 69 68 70 0 0 18 4 ] t2! // Server Room
+[ 70 69 0 0 0 19 4 ] t3! // Main Frame
+;
+
+// Zone 4: Magic Area
+:AE
+[ 56 0 58 57 0 20 5 ] g0! // Star Chamber
+[ 57 0 59 0 56 21 5 ] g1! // Void Gate 
+[ 58 56 0 59 0 22 5 ] g2! // Moon Pool
+[ 59 57 0 0 58 23 5 ] g3! // Astral Path
+;
+
+// Room Descriptions (all 77 rooms)
+:AF
+// Start Zone Text
+\[ 89 111 117 32 115 116 97 110 100 32 105 110 32 116 104 101 32 101 110 116 114 121 32 104 97 108 108 0 ] d0! // "You stand in the entry hall"
+\[ 65 32 108 97 114 103 101 32 99 97 118 101 114 110 32 111 112 101 110 115 32 98 101 102 111 114 101 32 121 111 117 0 ] d1! // "A large cavern opens before you"
+;
+
+// Item Definitions - Complete Set
+:AG
+// Basic Items [id type value weight flags]
+[ 1 1 10 1 0 ] i0! // Brass Key
+[ 2 1 20 1 0 ] i1! // Silver Key
+[ 3 1 30 1 0 ] i2! // Gold Key
+[ 4 2 15 5 0 ] i3! // Short Sword
+[ 5 2 25 8 0 ] i4! // Long Sword
+[ 6 3 20 10 0 ] i5! // Leather Armor
+[ 7 3 40 20 0 ] i6! // Chain Mail
+[ 8 4 50 1 0 ] i7! // Magic Ring
+[ 9 4 100 1 0 ] i8! // Power Crystal
+[ 10 5 75 5 0 ] i9! // Tech Device
+;
+
+// Monster Definitions - Complete Set
+:AH
+// Basic Monsters [id hp dmg armor flags]
+[ 1 20 5 2 0 ] m0! // Rat
+[ 2 40 8 4 0 ] m1! // Goblin
+[ 3 60 12 6 0 ] m2! // Orc
+[ 4 100 15 8 0 ] m3! // Troll
+[ 5 150 20 10 0 ] m4! // Dragon
+// Special Monsters
+[ 6 80 10 12 1 ] m5! // Ghost (ethereal)
+[ 7 120 18 15 2 ] m6! // Demon (fire)
+[ 8 200 25 20 3 ] m7! // Robot (tech)
+[ 9 300 30 25 4 ] m8! // Void Beast (magic)
+;
+
+// Item Location Table
+:AI
+// [room_id item_id quantity]
+[ 0 1 1 ] l0! // Key in start
+[ 1 4 1 ] l1! // Sword in hall
+[ 2 6 1 ] l2! // Armor in cave
+[ 25 9 1 ] l3! // Crystal in mountain
+[ 67 10 1 ] l4! // Tech in control room
+;
+
+// Monster Spawn Table
+:AJ
+// [room_id monster_id respawn_time]
+[ 2 1 10 ] s0! // Rat in cave
+[ 6 2 20 ] s1! // Goblin in woods
+[ 25 3 30 ] s2! // Orc in mountains
+[ 67 8 50 ] s3! // Robot in tech zone
+[ 56 9 100 ] s4! // Void Beast in magic zone
+;
+
+// Zone Connection Rules
+:AK
+// [zone1 zone2 key_required level_required]
+[ 0 1 1 1 ] c0! // Start to Forest
+[ 1 2 2 3 ] c1! // Forest to Mountain
+[ 2 3 3 5 ] c2! // Mountain to Tech
+[ 3 4 4 7 ] c3! // Tech to Magic
+;
+
+// Room State Handler
+:AL
+pl@ CheckState              // Get room state bits
+ProcessEffects             // Handle any active effects
+UpdateMonsters             // Update monster states
+UpdateItems               // Update item states
+;
+
+// Item State Handler
+:AM
+iv@ ProcessItems           // Process inventory
+CheckCombine              // Check for combinations
+UpdateDurability         // Update item wear
+;
+
+// Monster State Handler
+:AN
+pl@ CheckMonsters         // Check for monsters
+ProcessCombat            // Handle any combat
+UpdateMonsterState      // Update monster status
+;
+
+// Zone Effect Handler
+:AO
+pl@ CheckZone            // Get zone type
+ProcessZoneEffect       // Handle zone effects
+UpdatePlayerState      // Update player status
+;
+
+// Description Printer
+:AP
+pl@ GetDesc             // Get room description
+PrintDesc              // Show description
+ShowItems             // List items present
+ShowMonsters         // List monsters present
+ShowExits           // Show available exits
+;
+
+// Room Updater
+:AQ
+tn@ ProcessTime        // Process time effects
+UpdateRoom           // Update room state
+UpdateConnections  // Update connections
+;
+
+// State Saver
+:AR
+SaveRoomState        // Save room data
+SaveMonsterState    // Save monster data
+SaveItemState      // Save item data
+SavePlayerState   // Save player data
+;
+
+// State Loader
+:AS
+LoadRoomState       // Load room data
+LoadMonsterState   // Load monster data
+LoadItemState     // Load item data
+LoadPlayerState  // Load player data
+;
+
+// World Initializer
+:AT
+InitRooms          // Setup rooms
+InitMonsters      // Setup monsters
+InitItems        // Setup items
+InitZones       // Setup zones
+;
+
+// World Updater
+:AU
+/U (               // Continuous update
+  UpdateWorld     // Process world changes
+  CheckEvents    // Handle scheduled events
+  ProcessTime   // Update time effects
+  v@ 113 = /W    // Until quit
+)
+;
+
+// Part 3: Game Systems
+// Additional vars used:
+// cb = combat state   mg = magic state
+// tk = tech state     sk = skill points
+// rf = craft refs     ex = experience
+// dm = damage mods    ar = armor value
+// ab = abilities      qt = quest state
+
+// Combat System Init
 :BA
-[ 0 6 4 25 0 1 0 1 ] r0! // Start Room
-[ 1 2 3 4 0 2 0 2 ] r1! // First Paths
-[ 2 38 43 37 1 3 0 3 ] r2! // Cave Entry
-[ 3 34 33 4 41 4 0 1 ] r3! // Swamp Edge
-[ 4 30 29 0 3 5 0 2 ] r4! // Dark Path
-[ 5 21 24 6 4 6 0 3 ] r5! // Forest Link
+0 cb! 0 dm! 10 ar!         // Combat stats
+0 sk! 0 ex!                // Experience
+0 ab! 0 qt!                // Abilities/Quests
 ;
 
-// FOREST ZONE (6-24)
+// Process Attack
 :BB
-[ 6 17 5 7 16 7 0 4 ] f0! // Deep Woods
-[ 7 0 6 8 0 8 1 2 ] f1! // Ancient Tree
-[ 8 7 9 0 0 9 2 3 ] f2! // Mystic Grove
-[ 9 8 10 0 0 10 3 1 ] f3! // Spirit Well
-[ 10 9 11 0 0 11 1 4 ] f4! // Druid Circle
+mn@ GetMonster             // Get monster stats
+cb@ ProcessHit            // Calculate hit
+ApplyDamage              // Apply damage to monster
+CheckCounter             // Check for counterattack
+UpdateCombat             // Update combat state
 ;
 
-// MOUNTAIN ZONE (25-36)
+// Process Defense
 :BC
-[ 25 26 30 27 0 12 1 2 ] m0! // Base Camp
-[ 26 18 25 28 0 13 2 3 ] m1! // Rocky Path
-[ 27 22 31 0 25 14 3 1 ] m2! // High Peak
-[ 28 27 0 29 26 15 1 4 ] m3! // Eagle's Nest
-[ 29 28 0 0 0 16 2 2 ] m4! // Summit
+ar@ CalculateBlock        // Calculate block
+cb@ ProcessDefense       // Process defense
+ApplyDamage             // Take reduced damage
+UpdateArmor            // Update armor state
 ;
 
-// ASTRAL ZONE (56-59)
+// Magic System
 :BD
-[ 56 0 58 57 0 17 1 5 ] a0! // Star Chamber
-[ 57 0 59 0 56 18 2 5 ] a1! // Void Gate
-[ 58 56 0 59 0 19 3 5 ] a2! // Moon Pool
-[ 59 57 0 0 58 20 1 5 ] a3! // Astral Path
+sp@ CheckSpell            // Check spell available
+mp@ CheckCost            // Check magic points
+CastSpell               // Cast the spell
+UpdateMagic            // Update magic state
 ;
 
-// TECH ZONE (72-76)
+// Spell Effects
 :BE
-[ 72 0 0 76 55 21 2 6 ] t0! // Power Core
-[ 73 72 0 0 0 22 3 6 ] t1! // Control Room
-[ 74 73 75 0 0 23 1 6 ] t2! // Mainframe
-[ 75 74 76 0 0 24 2 6 ] t3! // Robot Bay
-[ 76 75 0 0 72 25 3 6 ] t4! // Tech Lab
+// Format: [id cost effect duration power]
+[ 1 10 1 3 20 ] s0!      // Fireball
+[ 2 15 2 4 30 ] s1!      // Ice Blast
+[ 3 20 3 5 40 ] s2!      // Lightning
+[ 4 25 4 6 50 ] s3!      // Heal
+[ 5 30 5 7 60 ] s4!      // Shield
 ;
 
-// MECHANICAL ZONE (67-70)
+// Tech System
 :BF
-[ 67 0 68 0 0 26 1 7 ] mc0! // Gear Hall
-[ 68 67 69 0 0 27 2 7 ] mc1! // Steam Chamber
-[ 69 68 70 0 0 28 3 7 ] mc2! // Clock Tower
-[ 70 69 0 0 0 29 1 7 ] mc3! // Brass Works
+tp@ CheckPower           // Check power level
+tk@ ProcessTech         // Process tech action
+UpdateTech            // Update tech state
 ;
 
-// ROOM DESCRIPTIONS
-// Using byte arrays for memory efficiency
-:CA
-// Start Zone
-\[ 89 111 117 32 115 116 97 110 100 32 105 110 32 97 32 100 105 109 32 99 97 118 101 114 110 ] d0! // Start Room
-\[ 65 32 119 105 110 100 105 110 103 32 112 97 116 104 32 108 101 97 100 115 32 111 110 ] d1! // First Paths
-\[ 84 104 101 32 99 97 118 101 32 111 112 101 110 115 32 117 112 ] d2! // Cave Entry
+// Tech Devices
+:BG
+// Format: [id power effect duration charge]
+[ 1 15 1 4 100 ] t0!     // Shield Generator
+[ 2 20 2 5 100 ] t1!     // Power Beam
+[ 3 25 3 6 100 ] t2!     // Health Unit
+[ 4 30 4 7 100 ] t3!     // Teleporter
 ;
 
-// ITEM DEFINITIONS
-// Format: [id loc type value weight special effects]
-:DA
-// Basic Items
-[ 1 0 1 10 5 0 1 ] it0! // Brass Key
-[ 2 13 2 50 2 1 2 ] it1! // Magic Sword
-[ 3 27 3 100 8 2 3 ] it2! // Crystal Staff
-
-// Special Items
-[ 4 72 4 75 3 3 4 ] it3! // Tech Core
-[ 5 56 5 200 1 4 5 ] it4! // Void Stone
-[ 6 67 6 150 6 5 6 ] it5! // Gear Assembly
-[ 7 39 7 90 4 6 7 ] it6! // Healing Crystal
-
-// Magical Items
-[ 8 20 8 180 2 7 8 ] it7! // Spell Book
-[ 9 58 9 250 1 8 9 ] it8! // Astral Shard
-[ 10 42 10 120 5 9 10 ] it9! // Witch's Brew
+// Crafting System
+:BH
+rf@ CheckRecipe          // Check recipe known
+CheckMaterials          // Check materials
+DoCraft                // Perform crafting
+UpdateInventory       // Update inventory
 ;
 
-// MONSTER DEFINITIONS
-// Format: [id hp atk def special_moves loot behavior]
-:EA
-// Basic Monsters
-[ 1 50 10 5 1 2 1 ] mn0! // Cave Troll
-[ 2 30 15 3 2 3 2 ] mn1! // Dark Wraith
-[ 3 100 20 15 3 5 3 ] mn2! // Dragon
-
-// Zone-Specific Monsters
-[ 4 45 12 8 4 4 4 ] mn3! // Forest Spirit
-[ 5 60 18 12 5 6 5 ] mn4! // Mountain Giant
-[ 6 40 25 5 6 7 6 ] mn5! // Tech Sentinel
-[ 7 70 15 20 7 8 7 ] mn6! // Astral Being
-[ 8 55 22 10 8 9 8 ] mn7! // Gear Golem
+// Recipes
+:BI
+// Format: [result parts[4] tool level]
+[ 7 1 2 3 0 1 ] r0!     // Make Health Potion
+[ 8 2 3 4 1 2 ] r1!     // Make Better Armor
+[ 9 3 4 5 2 3 ] r2!     // Make Magic Weapon
+[ 10 4 5 6 3 4 ] r3!    // Make Tech Device
 ;
 
-// SPELL SYSTEM
-// Format: [id mp_cost damage effect duration area_effect]
-:FA
-// Combat Spells
-[ 1 10 20 1 3 1 ] sp0! // Fireball
-[ 2 15 0 2 5 0 ] sp1! // Heal
-[ 3 25 30 3 1 2 ] sp2! // Lightning
-[ 4 20 15 4 4 3 ] sp3! // Ice Blast
-[ 5 30 40 5 2 4 ] sp4! // Meteor
-[ 6 18 0 6 6 0 ] sp5! // Shield
-[ 7 35 25 7 3 5 ] sp6! // Void Strike
-[ 8 22 0 8 5 1 ] sp7! // Nature's Call
+// Skill System
+:BJ
+sk@ CheckSkill          // Check skill available
+UseSkill               // Use the skill
+GainExperience        // Gain experience
+UpdateSkills         // Update skills
 ;
 
-// CRAFT RECIPES
-// Format: [result components[4] tool_req complexity]
-:GA
-// Tech Zone Recipes
-[ 4 1 2 3 0 1 3 ] cr0! // Tech Device
-[ 5 2 3 4 0 2 2 ] cr1! // Power Cell
-[ 6 3 4 5 1 3 4 ] cr2! // Energy Core
-
-// Mechanical Zone Recipes
-[ 7 4 5 6 0 4 5 ] cr3! // Gear Assembly
-[ 8 5 6 7 2 5 3 ] cr4! // Steam Engine
-[ 9 6 7 8 1 6 4 ] cr5! // Clock Mechanism
-
-// Magic Zone Recipes
-[ 10 7 8 9 3 7 5 ] cr6! // Magic Talisman
-[ 11 8 9 10 2 8 6 ] cr7! // Spell Crystal
+// Skills
+:BK
+// Format: [id req_level cost effect]
+[ 1 1 10 10 ] k0!      // Better Attack
+[ 2 2 20 20 ] k1!      // Better Defense
+[ 3 3 30 30 ] k2!      // Better Magic
+[ 4 4 40 40 ] k3!      // Better Tech
 ;
 
-// PUZZLE SYSTEM
-// Format: [id type solution reward hint special_effect]
-:HA
-// Mechanical Puzzles
-[ 1 1 #FF 5 1 1 ] pz0! // Gear Alignment
-[ 2 1 #A5 7 2 2 ] pz1! // Steam Valves
-[ 3 1 #C3 9 3 3 ] pz2! // Clock Face
-
-// Magic Puzzles
-[ 4 2 #B4 6 4 4 ] pz3! // Rune Pattern
-[ 5 2 #D2 8 5 5 ] pz4! // Crystal Focus
-[ 6 2 #E1 10 6 6 ] pz5! // Spell Circle
-
-// Tech Puzzles
-[ 7 3 #91 12 7 7 ] pz6! // Circuit Path
-[ 8 3 #88 15 8 8 ] pz7! // Power Flow
-[ 9 3 #77 20 9 9 ] pz8! // Robot Logic
+// Quest System
+:BL
+qt@ CheckQuest         // Check quest status
+UpdateQuest          // Update quest progress
+CheckReward         // Check for rewards
+GiveReward        // Give quest reward
 ;
 
-// COMMAND PARSER
-:IA
-/K v! // Get verb
-/K n! // Get noun
-v@ 
-110 = MN   // n=north
-115 = MS   // s=south
-101 = ME   // e=east
-119 = MW   // w=west
-117 = MU   // u=up
-100 = MD   // d=down
-108 = LK   // l=look
-116 = TK   // t=take
-112 = PT   // p=put
-105 = IV   // i=inventory
-97 = AT    // a=attack
-102 = FL   // f=float
-109 = MG   // m=magic
-99 = CR    // c=craft
-120 = XM   // x=examine
-115 = SV   // s=save
-114 = LD   // r=restore
+// Quests
+:BM
+// Format: [id type req reward status]
+[ 1 1 5 100 0 ] q0!    // Kill 5 Rats
+[ 2 2 3 200 0 ] q1!    // Find 3 Keys
+[ 3 3 1 300 0 ] q2!    // Defeat Boss
+[ 4 4 4 400 0 ] q3!    // Craft Item
 ;
 
-// MOVEMENT SYSTEM
-:JA
-v@ 110 = ( // North
-  CheckExit ProcessMove
-) v@ 115 = ( // South
-  CheckExit ProcessMove
-) v@ 101 = ( // East
-  CheckExit ProcessMove
-) v@ 119 = ( // West
-  CheckExit ProcessMove
-) v@ 117 = ( // Up
-  CheckExit ProcessMove
-) v@ 100 = ( // Down
-  CheckExit ProcessMove
+// Experience System
+:BN
+ex@ CheckLevel         // Check current level
+AddExperience        // Add new experience
+CheckLevelUp        // Check for level up
+DoLevelUp         // Perform level up
+;
+
+// Level Requirements
+:BO
+// Format: [level exp hp mp tp bonus]
+[ 1 100 110 110 110 1 ] l0!
+[ 2 300 120 120 120 2 ] l1!
+[ 3 600 130 130 130 3 ] l2!
+[ 4 1000 140 140 140 4 ] l3!
+;
+
+// Combat Handler
+:BP
+v@ 97 = (                // a - attack
+    BB                   // Process attack
+) v@ 100 = (            // d - defend
+    BC                  // Process defense
 )
 ;
 
-// COMBAT SYSTEM
-:KA
-v@ 97 = ( // Attack
-  GetTarget
-  CalculateDamage
-  ApplyEffects
-  CheckStatus
+// Magic Handler
+:BQ
+v@ 109 = (              // m - magic
+    n@ 49 = ( s0@ BD )  // 1 - spell 1
+    n@ 50 = ( s1@ BD )  // 2 - spell 2
+    n@ 51 = ( s2@ BD )  // 3 - spell 3
+    n@ 52 = ( s3@ BD )  // 4 - spell 4
 )
 ;
 
-// MAGIC SYSTEM
-:LA
-v@ 109 = ( // Magic
-  CheckMP
-  GetSpell
-  CastEffect
-  UpdateStatus
+// Tech Handler
+:BR
+v@ 116 = (              // t - tech
+    n@ 49 = ( t0@ BF )  // 1 - device 1
+    n@ 50 = ( t1@ BF )  // 2 - device 2
+    n@ 51 = ( t2@ BF )  // 3 - device 3
+    n@ 52 = ( t3@ BF )  // 4 - device 4
 )
 ;
 
-// TECH SYSTEM
-:MA
-v@ 99 = ( // Craft
-  CheckMaterials
-  ProcessCraft
-  UpdateInventory
+// Craft Handler
+:BS
+v@ 99 = (               // c - craft
+    n@ CheckRecipe (    // Valid recipe?
+        BH             // Do crafting
+    ) /E (
+        `No recipe`
+    )
 )
 ;
 
-// ZONE EFFECTS
-:NA
-// Zone-specific environmental effects
-pl@ zn@ 
-1 = Forest    // Forest effects
-2 = Mountain  // Mountain effects
-3 = Astral    // Astral effects
-4 = Tech      // Tech effects
-5 = Mechanical // Mechanical effects
-;
-
-// MAIN GAME LOOP
-:OA
-LK // Show location
-DisplayStatus
-IA // Get command
-ProcessCommand
-UpdateWorld
-CheckGameState
-;
-
-// GAME START
-:PA
-`Welcome to the Complex Realm` /N
-ShowIntro
-InitializeGame
-OA // Start main loop
-;
-
-// STATUS TRACKING
-:QA
-// Track and update:
-// - Player state
-// - World state
-// - Monster state
-// - Puzzle state
-// - Environmental effects
-hp@ . mp@ . tp@ .
-;
-
-// SAVE/LOAD SYSTEM
-:RA
-v@ 115 = ( // Save
-  SaveGameState
-) v@ 114 = ( // Load
-  LoadGameState
+// Skill Handler
+:BT
+v@ 115 = (              // s - skill
+    n@ CheckSkill (     // Have skill?
+        BJ            // Use skill
+    ) /E (
+        `No skill`
+    )
 )
 ;
 
-// HELPER FUNCTIONS
-:SA
-// Various utility functions
-ProcessInput
-HandleErrors
-UpdateDisplay
+// Quest Handler
+:BU
+v@ 113 = (              // q - quest
+    ShowQuests         // Show active quests
+    CheckQuests       // Check completions
+    UpdateQuests     // Update states
+)
 ;
 
-// GAME MECHANICS
-:TA
-// Core game mechanics
-ProcessPhysics
-HandleCollisions
-UpdateAI
+// Status Handler
+:BV
+`Level:` ex@ GetLevel .
+`HP:` hp@ . `/' hp@ GetMax .
+`MP:` mp@ . `/' mp@ GetMax .
+`TP:` tp@ . `/' tp@ GetMax .
+`XP:` ex@ . `Next:` ex@ NextLevel .
 ;
+
+// Main Systems Handler
+:BW
+BP                     // Handle combat
+BQ                     // Handle magic
+BR                     // Handle tech
+BS                     // Handle crafting
+BT                     // Handle skills
+BU                     // Handle quests
+;
+
+// Help Display
+:BX
+`Commands:` /N
+`a: Attack  d: Defend` /N
+`m1-4: Magic  t1-4: Tech` /N
+`c: Craft  s: Skills` /N
+`q: Quests  ?: Help` /N
+;
+
+// Statistics Display
+:BY
+`Stats:` /N
+BV                    // Show all stats
+`Quests:` qt@ ShowActiveQuests /N
+`Skills:` sk@ ShowSkills /N
+;
+
 
