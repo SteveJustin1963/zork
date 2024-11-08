@@ -236,6 +236,7 @@ SaveHighScore
 `Gold:` gd@ . /N
 ;
 
+///////////////////////////////////////////////////////////
 
 // Part 2: World Content
 // Array layouts and types:
@@ -432,6 +433,9 @@ InitZones       // Setup zones
   v@ 113 = /W    // Until quit
 )
 ;
+
+
+/////////////////////////////////////////////////////////
 
 // Part 3: Game Systems
 // Additional vars used:
@@ -663,4 +667,113 @@ BV                    // Show all stats
 `Skills:` sk@ ShowSkills /N
 ;
 
+///////////////////////////////////////////////
+// Part 5: 
+// SP0256A-AL2 would pronounce each word phonetically
+// port 5
+
+
+:SAY
+  /K w !               // Read typed input word into 'w'
+
+  w `LOOK` = (
+    #0A 5 /O          // LL
+    #0C 5 /O          // UH
+    #08 5 /O          // KK3
+  ) /E
+  w `OPEN` = (
+    #0F 5 /O          // OW
+    #09 5 /O          // PP
+    #07 5 /O          // EH
+    #0B 5 /O          // NN1
+  ) /E
+  w `NORTH` = (
+    #0B 5 /O          // NN1
+    #12 5 /O          // OR
+    #12 5 /O          // TH
+  ) /E
+  w `SOUTH` = (
+    #19 5 /O          // SS
+    #17 5 /O          // AW
+    #12 5 /O          // TH
+  ) /E
+  w `EAST` = (
+    #13 5 /O          // EE
+    #19 5 /O          // SS
+    #11 5 /O          // TT1
+  ) /E
+  w `WEST` = (
+    #0E 5 /O          // WW
+    #07 5 /O          // EH
+    #19 5 /O          // SS
+    #11 5 /O          // TT1
+  ) /E
+  w `TAKE` = (
+    #11 5 /O          // TT1
+    #1A 5 /O          // AE
+    #08 5 /O          // KK3
+  ) /E
+  w `DROP` = (
+    #15 5 /O          // DD1
+    #15 5 /O          // ER
+    #17 5 /O          // AW
+    #09 5 /O          // PP
+  ) /E
+  w `INVENTORY` = (
+    #0C 5 /O          // IH
+    #0B 5 /O          // NN1
+    #21 5 /O          // VV
+    #07 5 /O          // EH
+    #0B 5 /O          // NN1
+    #11 5 /O          // TT1
+    #12 5 /O          // OR
+    #13 5 /O          // EE
+  ) /E
+  w `FIGHT` = (
+    #20 5 /O          // FF
+    #06 5 /O          // AY
+    #11 5 /O          // TT1
+  ) /E
+  w `HELP` = (
+    #21 5 /O          // HH
+    #07 5 /O          // EH
+    #0A 5 /O          // LL
+    #09 5 /O          // PP
+  ) /E
+  w `SWORD` = (
+    #19 5 /O          // SS
+    #17 5 /O          // AW
+    #0E 5 /O          // RR1
+    #15 5 /O          // DD1
+  ) /E
+  w `SHIELD` = (
+    #19 5 /O          // SS
+    #21 5 /O          // HH1
+    #13 5 /O          // IY
+    #0A 5 /O          // LL
+    #15 5 /O          // DD1
+  ) /E
+  w `MAGIC` = (
+    #10 5 /O          // MM
+    #1A 5 /O          // AE
+    #0A 5 /O          // JJ
+    #0C 5 /O          // IH
+    #08 5 /O          // KK3
+  ) /E
+  w `GO` = (
+    #1D 5 /O          // GG
+    #0F 5 /O          // OH
+  ) /E
+  w `QUIT` = (
+    #25 5 /O          // KW
+    #0C 5 /O          // IH
+    #11 5 /O          // TT1
+  ) /E
+  w `RUN` = (
+    #0E 5 /O          // RR1
+    #0C 5 /O          // UH
+    #0B 5 /O          // NN1
+  ) /E
+;
+///////////////////////////
 
